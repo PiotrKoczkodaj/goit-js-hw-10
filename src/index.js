@@ -1,118 +1,74 @@
 import './css/styles.css';
-import { fetchCountries, fetchCountries } from './fetchCountries';
-import debounce from 'lodash.debounce';
 import Notiflix from 'notiflix';
+import debounce from 'lodash.debounce';
+import { fetchCountries } from './fetchCountries';
+
+const formInput = document.querySelector('input');
+const countryList = document.querySelector('.country-list');
+const countryInfo = document.querySelector('.country-info');
 
 const DEBOUNCE_DELAY = 300;
-const input = document.querySelector('input#search-box');
-const countryList = document.querySelector('ul.country-list');
-const countryInfo = document.querySelector('div.country-info');
-const body = document.querySelector('body');
 
-body.style.padding = '15px';
-body.style.backgroundColor = '#CDD8D4';
+//event listener
+formInput.addEventListener('input',debounce(onSearchedCountry, DEBOUNCE_DELAY));
 
-input.style.width = '30vw';
-input.style.fontWeight = '600';
+//functions
 
-countryList.style.listStyle = 'none';
-countryList.style.margin = '0';
-countryList.style.padding = '0';
+function clearAtrributes() {
+  countryList.innerHTML = '';
+  countryInfo.innerHTML = '';
+}
 
-const renderInfo = countries => {
-  let markupInfo = countries
-    .map(country => {
-      return `<p class="info-header" style="display: flex; align-items: center; font-size: 40px; font-weight: 700; margin: 0; margin-bottom: 30px;" ><img src="${
-        country.flags.svg
-      }" width="30" style="display: inline-block" /><span class="country-span"
-      style="padding-left: 5px;">${
-        country.name.official
-      }</span></p> <ul class="info-list" style="list-style: none; padding: 0; margin: 0 " >
-        <li class="info-element" style="margin-bottom: 18px;"><span class="info-span" style="font-size: 20px; font-weight: 700; ">Capital:</span><span class="country-info-span" style="font-size: 20px; margin-left: 5px; font-weight: 600 ">${
-          country.capital
-        }</span></li>
-        <li class="info-element" style="margin-bottom: 18px;"><span class="info-span" style="font-size: 20px; font-weight: 700; ">Population:</span><span class="country-info-span" style="font-size: 20px; margin-left: 5px; font-weight: 600">${
-          country.population
-        }</span></li>
-        <li class="info-element" style="margin-bottom: 18px;"><span class="info-span" style="font-size: 20px; font-weight: 700; ">Languages:</span><span class="country-info-span" style="font-size: 20px; margin-left: 5px; font-weight: 600">${Object.values(
-          country.languages
-        ).join(', ')}</span></li>
-      </ul> `;
+function onSearchedCountry(event) {
+  const countryToFind = event.target.value.trim();
+  if (!countryToFind) {
+    clearAtrributes();
+    return;
+  }
+
+  fetchCountries(countryToFind)
+    .then(country => {
+      if (country.length > 10) {
+        Notiflix.Notify.info(
+          'Too many matches found. Please enter a more specific name.');
+        clearAtrributes();
+        return;
+      } else if (country.length === 1) {
+        clearAtrributes(countryList.innerHTML);
+        renderCountryInfo(country);
+      } else if ((country.length >= 2) && (country.length <= 10)){
+        clearAtrributes(countryInfo.innerHTML);
+        renderCountryList(country);
+      }
+    })
+
+    .catch(error => {
+      Notiflix.Notify.failure('Oops, there is no country with that name');
+      clearAtrributes();
+      return error;
+    });
+}
+
+//rendering
+function renderCountryList(country) {
+  const markup = country
+    .map(({ name, flags }) => {
+      return `<li><img src="${flags.svg}" alt="${name.official}" width="100" height="60">${name.official}</li>`;
+    })
+    .join('');
+  countryList.innerHTML = markup;
+}
+
+function renderCountryInfo(country) {
+  const markupInfo = country
+    .map(({ name, capital, population, flags, languages }) => {
+      return `<h1><img src="${flags.svg}" alt="${
+        name.official
+      }" width="100" height="60">${name.official}</h1>
+      <p><span>Capital: </span>${capital}</p>
+      <p><span>Population:</span> ${population}</p>
+      <p><span>Languages:</span> ${Object.values(languages)}</p>`;
     })
     .join('');
   countryInfo.innerHTML = markupInfo;
-};
-
-const renderList = countries => {
-  let markupList = countries
-    .map(country => {
-      return `<li class="country-element" style="display: flex; align-items: center; padding-bottom: 8px"><img src="${country.flags.svg}" width="30" style="display: inline-block" /><span class="country-span" style="padding-left: 5px; font-weight: 600; font-size: 18px">${country.name.official}</span></li>`;
-    })
-    .join('');
-  countryList.innerHTML = markupList;
-};
-
-input.addEventListener(
-  'input',
-  debounce(async event => {
-    let trimInput = input.value.trim();
-    if (trimInput === '') {
-      countryList.innerHTML = '';
-      countryInfo.innerHTML = '';
-      return;
-    }
-    try {
-      const fetchCountriesVariable = await fetchCountries(trimInput);
-      if (fetchCountriesVariable.length > 10) {
-        Notiflix.Notify.info(
-          'Too many matches found. Please enter a more specific name.',
-          { width: '35vw', timeout: 2000 }
-        );
-        countryList.innerHTML = '';
-        countryInfo.innerHTML = '';
-      }
-      if (fetchCountriesVariable.length <= 10 && fetchCountriesVariable.length >= 2) {
-        countryInfo.innerHTML = '';
-        renderList(fetchCountriesVariable);
-      }
-      if (fetchCountriesVariable.length === 1) {
-        countryList.innerHTML = '';
-        renderInfo(fetchCountriesVariable);
-      }
-    } catch (error) {
-      countryList.innerHTML = '';
-      countryInfo.innerHTML = '';
-      Notiflix.Notify.failure('Oops, there is no country with that name', {
-        width: '35vw',
-        timeout: 2000,
-      });
-    }
-    // return fetchCountries(trimInput)
-    //   .then(countries => {
-    //     if (countries.length > 10) {
-    //       Notiflix.Notify.info(
-    //         'Too many matches found. Please enter a more specific name.',
-    //         { width: '35vw', timeout: 2000 }
-    //       );
-    //       countryList.innerHTML = '';
-    //       countryInfo.innerHTML = '';
-    //     }
-    //     if (countries.length <= 10 && countries.length >= 2) {
-    //       countryInfo.innerHTML = '';
-    //       renderList(countries);
-    //     }
-    //     if (countries.length === 1) {
-    //       countryList.innerHTML = '';
-    //       renderInfo(countries);
-    //     }
-    //   })
-    //   .catch(error => {
-    //     countryList.innerHTML = '';
-    //     countryInfo.innerHTML = '';
-    //     Notiflix.Notify.failure('Oops, there is no country with that name', {
-    //       width: '35vw',
-    //       timeout: 2000,
-    //     });
-    //   });
-  }, DEBOUNCE_DELAY)
-);
+}
